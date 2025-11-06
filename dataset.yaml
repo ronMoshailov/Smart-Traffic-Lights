@@ -1,0 +1,4 @@
+train: dataset/set_02_5_night/images
+val: dataset/set_02_5_night/images  # כי אתה משתמש באותם קבצים גם ל-val
+nc: 3  # שנה לפי מספר הקטגוריות
+names: ['car', 'truck', 'bus']  # שנה לשמות שלך
