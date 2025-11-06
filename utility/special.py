@@ -1,5 +1,5 @@
 import os
-
+import torch
 
 def rename_files_in_folder(folder_path):
 
@@ -24,3 +24,12 @@ def rename_files_in_folder(folder_path):
 
 # דוגמה לשימוש:
 # rename_files_in_folder(r"C:\Users\YourName\Desktop\images")
+
+def set_cuda():
+    if torch.cuda.is_available():
+        device = "cuda"
+        print(f"✅ GPU detected: {torch.cuda.get_device_name(0)}")
+    else:
+        device = "cpu"
+        print("⚠️ CUDA not available, running on CPU.")
+    return device

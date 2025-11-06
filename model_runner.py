@@ -4,9 +4,10 @@ import cv2
 import numpy as np
 import time
 from ultralytics import YOLO
+import torch
 
 
-def run_model(model, video, lane_coordinates=None, save_images=False, save_interval=10, frame_rate=30):
+def run_model(model, video, device, lane_coordinates=None, save_images=False, save_interval=10, frame_rate=30):
     # Data
     history = deque(maxlen=30)  # List that holds the last 30 elements. complexity of O(1)
     last_save_time = 0
@@ -24,11 +25,11 @@ def run_model(model, video, lane_coordinates=None, save_images=False, save_inter
 
         # try every 'frame_rate' model
         frame_counter += 1
-        if frame_counter % frame_rate != 0:
+        if frame_rate != 0 and frame_counter % frame_rate != 0:
             continue
 
         frame_copy = frame.copy()
-        results = model(frame_copy, conf=0.4, imgsz=960)
+        results = model(frame_copy, conf=0.4, imgsz=960, device=device)
         for box in results[0].boxes:
             # box.xyxy   - coordinates of the object (x1, y1, x2, y2), left top + right down
             # box.xywh   - coordinates of the object (x_center, y_center, width, height)
@@ -37,15 +38,17 @@ def run_model(model, video, lane_coordinates=None, save_images=False, save_inter
             # box.id     - number category of the object
 
             category_number = int(box.cls[0])
-            if model.names[category_number] in ["car", "truck", "bus", "motorbike"]:
+            category_name = model.names[category_number]
+            if category_name in ["car", "truck", "bus", "motorbike"]:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
-                cv2.rectangle(frame_copy, (x1, y1), (x2, y2), color=(0, 255, 0), thickness=1)
+                colors = {"car": (0, 255, 0), "truck": (255, 0, 0), "bus": (0, 0, 255), "motorbike": (255, 255, 0)}
+                cv2.rectangle(frame_copy, (x1, y1), (x2, y2), color=colors[category_name], thickness=1)
 
                 conf = float(box.conf[0])  # 0.0 - 1.0
-                text = f"{int(conf * 100)}%"  # לדוגמה: "87%"
+                text = f"{category_name}: {int(conf * 100) }%"  # לדוגמה: "87%"
 
                 # מיקום הטקסט מעל הקופסה
-                cv2.putText(frame_copy, text, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+                cv2.putText(frame_copy, text, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, colors[category_name], 1)
 
         # annotated = results[0].plot()       # draw boxes, labels and confidence percentages for each object
         # cv2.polylines(annotated, [lane_coordinates], isClosed=True, color=(0, 0, 255), thickness=2)  # draw the area to check
@@ -95,20 +98,21 @@ def run_model(model, video, lane_coordinates=None, save_images=False, save_inter
         if key == ord("q"):  # if 'q' pressed -> stop the loop
             break
 
-        # if key == ord("c"):
-        #     filename = f"captured_frames/manual_{int(time.time())}.jpg"
-        #     cv2.imwrite(filename, frame)
-        #     print(f"[INFO] Saved frame manually: {filename}")
+        if key == ord("c"):
+            filename = f"captured_frames/manual_{int(time.time())}.jpg"
+            cv2.imwrite(filename, frame)
+            print(f"[INFO] Saved frame manually: {filename}")
 
     ## ========== Close ========== ##
     video.release()  # end the video and free memory
     cv2.destroyAllWindows()  # close all the windows of OpenCV
 
-def train_model(model):
+def train_model(model, device):
     model.train(
         data="dataset.yaml",
         epochs=50,  # run of data 50 times. (recommend to be 50-200)
         imgsz=960,
         batch=8,  # how many data to learn each time
-        name="yolo8l_trained"
+        name="yolo8l_trained",
+        device=device,
     )
